@@ -11,6 +11,8 @@ export interface AttendanceEntry {
   time: string;
   date: string;
   description: string;
+  gate?: string;
+  type?: 'person' | 'vehicle' | 'unknown';
 }
 
 export interface PersonAttendance {

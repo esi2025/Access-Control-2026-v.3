@@ -24,7 +24,10 @@ import {
   Home,
   ShieldAlert,
   Smartphone,
-  DownloadCloud
+  DownloadCloud,
+  Car,
+  User as UserIcon,
+  DoorOpen
 } from 'lucide-react';
 import { RawRecord, PersonAttendance, AttendanceEntry } from './types';
 import Calendar from './components/Calendar';
@@ -110,6 +113,7 @@ const App: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showAll, setShowAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // ذخیره در حافظه با مدیریت خطا
   useEffect(() => {
@@ -130,10 +134,15 @@ const App: React.FC = () => {
       localStorage.removeItem('attendance_data_v2');
       setRawParsedData({});
       setSelectedPersonId(null);
+      setSelectedDate(null);
       // یکبار رفرش دستی برای اطمینان از پاکسازی کش
       window.location.reload();
     }
   };
+
+  useEffect(() => {
+    setSelectedDate(null);
+  }, [selectedPersonId]);
 
   useEffect(() => {
     console.log("Raw Data Updated:", Object.keys(rawParsedData).length, "people");
@@ -214,6 +223,18 @@ const App: React.FC = () => {
           const nameMatch = description.match(/Valid credential (.*?) \(/);
           const name = nameMatch ? nameMatch[1].trim() : `شخص ${id}`;
 
+          // استخراج هوشمند درب و نوع تردد
+          let gate = 'نامشخص';
+          const gateMatch = description.match(/(Gate|درب)\s*(\d+|[آ-ی]+)/i);
+          if (gateMatch) gate = gateMatch[0];
+
+          let type: 'person' | 'vehicle' | 'unknown' = 'unknown';
+          if (description.toLowerCase().includes('vehicle') || description.includes('خودرو')) {
+            type = 'vehicle';
+          } else if (description.toLowerCase().includes('person') || description.includes('نفر') || description.includes('credential')) {
+            type = 'person';
+          }
+
           if (!initialProcessed[id]) {
             initialProcessed[id] = { id, name, entries: [], dailyLogs: {} };
           }
@@ -221,7 +242,9 @@ const App: React.FC = () => {
           const entry: AttendanceEntry = {
             time: secondsToHHMMSS(timeSeconds),
             date: datestamp,
-            description: description
+            description: description,
+            gate,
+            type
           };
 
           if (!initialProcessed[id].dailyLogs[datestamp]) {
@@ -627,6 +650,7 @@ const App: React.FC = () => {
                           month={selectedPersonStats?.month || 1} 
                           activeDays={selectedPersonStats?.activeDaysMap || {}} 
                           limit={trafficLimit}
+                          onDayClick={(date) => setSelectedDate(date)}
                         />
                         
                         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
@@ -654,15 +678,92 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-                    {selectedPersonStats && selectedPersonStats.highTrafficDetails.length > 0 && (
+                    {selectedDate && selectedPerson?.dailyLogs[selectedDate] ? (
+                      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
+                        <div className="p-4 border-b border-slate-100 bg-blue-50/20 text-center flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <CalendarIcon size={18} className="text-blue-500" />
+                            <h3 className="font-bold text-slate-800 text-xs">جزئیات تردد: {formatFriendlyJalaliDate(selectedDate)}</h3>
+                          </div>
+                          <button onClick={() => setSelectedDate(null)} className="text-slate-400 hover:text-slate-600">
+                            <XCircle size={16} />
+                          </button>
+                        </div>
+                        <div className="p-4 space-y-3 overflow-y-auto max-h-[400px] custom-scrollbar">
+                          {/* خلاصه روزانه */}
+                          <div className="flex gap-2 mb-4">
+                            <div className="flex-1 bg-blue-50 border border-blue-100 p-2 rounded-2xl flex flex-col items-center">
+                              <span className="text-[10px] font-bold text-blue-600">تردد نفری</span>
+                              <span className="text-lg font-black text-blue-800">
+                                {selectedPerson.dailyLogs[selectedDate].filter(e => e.type !== 'vehicle').length}
+                              </span>
+                            </div>
+                            <div className="flex-1 bg-amber-50 border border-amber-100 p-2 rounded-2xl flex flex-col items-center">
+                              <span className="text-[10px] font-bold text-amber-600">تردد خودرویی</span>
+                              <span className="text-lg font-black text-amber-800">
+                                {selectedPerson.dailyLogs[selectedDate].filter(e => e.type === 'vehicle').length}
+                              </span>
+                            </div>
+                          </div>
+
+                          {selectedPerson.dailyLogs[selectedDate].map((entry, idx) => {
+                            const isVehicle = entry.type === 'vehicle';
+                            const themeClass = isVehicle 
+                              ? 'bg-amber-50/50 border-amber-200/50' 
+                              : 'bg-blue-50/50 border-blue-200/50';
+                            const iconBgClass = isVehicle ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600';
+                            
+                            return (
+                              <div key={idx} className={`flex flex-col p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md ${themeClass} gap-2`}>
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className={`p-2.5 rounded-xl shadow-inner ${iconBgClass}`}>
+                                      {isVehicle ? <Car size={18} /> : <UserIcon size={18} />}
+                                    </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-black text-slate-800 text-base leading-none">{entry.time}</span>
+                                      <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${isVehicle ? 'text-amber-600' : 'text-blue-600'}`}>
+                                        {isVehicle ? 'تردد با خودرو' : 'تردد پیاده / نفری'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex flex-col items-end gap-1">
+                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-[10px] shadow-sm ${
+                                      idx % 2 === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'
+                                    }`}>
+                                      {idx % 2 === 0 ? <LogIn size={12} /> : <LogOut size={12} />}
+                                      <span>{idx % 2 === 0 ? 'ورود' : 'خروج'}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold border-t border-slate-200/30 pt-2 mt-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="p-1 bg-white rounded-md border border-slate-100">
+                                      <DoorOpen size={12} className="text-slate-400" />
+                                    </div>
+                                    <span>موقعیت: <span className="text-slate-700">{entry.gate}</span></span>
+                                  </div>
+                                  <div className="flex items-center gap-1 opacity-60">
+                                    <CheckCircle2 size={10} className="text-emerald-500" />
+                                    <span>تایید شده</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : selectedPersonStats && selectedPersonStats.highTrafficDetails.length > 0 && (
                       <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
                         <div className="p-4 border-b border-slate-100 bg-orange-50/20 text-center flex items-center justify-center gap-2">
                           <AlertCircle size={18} className="text-orange-500" />
-                          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">تحلیل زمانی</h3>
+                          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">روزهای پرتردد (بحرانی)</h3>
                         </div>
                         <div className="divide-y divide-slate-50 overflow-y-auto custom-scrollbar flex-1 max-h-[400px]">
                           {selectedPersonStats.highTrafficDetails.map(([date, entries]) => (
-                            <div key={date} className="p-4 hover:bg-slate-50/30 transition-colors flex flex-col items-center">
+                            <div key={date} className="p-4 hover:bg-slate-50/30 transition-colors flex flex-col items-center cursor-pointer" onClick={() => setSelectedDate(date)}>
                               <div className="flex flex-col items-center gap-1 mb-3">
                                 <span className="font-bold text-slate-800 bg-white border border-slate-200 px-3 py-1 rounded-lg text-[10px] shadow-sm">
                                   {formatFriendlyJalaliDate(date)}
