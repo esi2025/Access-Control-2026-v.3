@@ -27,7 +27,12 @@ import {
   DownloadCloud,
   Car,
   User as UserIcon,
-  DoorOpen
+  DoorOpen,
+  Moon,
+  Sun,
+  Filter,
+  FilterX,
+  FileText
 } from 'lucide-react';
 import { RawRecord, PersonAttendance, AttendanceEntry } from './types';
 import Calendar from './components/Calendar';
@@ -114,6 +119,24 @@ const App: React.FC = () => {
   const [showAll, setShowAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | 'person' | 'vehicle'>('all');
+  const [filterGate, setFilterGate] = useState<string>('all');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [darkMode]);
 
   // ذخیره در حافظه با مدیریت خطا
   useEffect(() => {
@@ -387,6 +410,58 @@ const App: React.FC = () => {
     };
   }, [selectedPerson, trafficLimit]);
 
+  const allGates = useMemo(() => {
+    const gates = new Set<string>();
+    (Object.values(processedData) as PersonAttendance[]).forEach(person => {
+      Object.values(person.dailyLogs).forEach(entries => {
+        entries.forEach(entry => {
+          if (entry.gate) gates.add(entry.gate);
+        });
+      });
+    });
+    return Array.from(gates).sort();
+  }, [processedData]);
+
+  const filteredEntriesReport = useMemo(() => {
+    const results: any[] = [];
+    (Object.values(processedData) as PersonAttendance[]).forEach(person => {
+      Object.entries(person.dailyLogs).forEach(([date, entries]) => {
+        // فیلتر تاریخ
+        if (filterStartDate && compareJalaliDates(date, filterStartDate) < 0) return;
+        if (filterEndDate && compareJalaliDates(date, filterEndDate) > 0) return;
+
+        entries.forEach(entry => {
+          // فیلتر نوع
+          if (filterType !== 'all' && entry.type !== filterType) return;
+          // فیلتر درب
+          if (filterGate !== 'all' && entry.gate !== filterGate) return;
+
+          results.push({
+            'نام': person.name,
+            'کد پرسنلی': person.id,
+            'تاریخ': date,
+            'زمان': entry.time,
+            'نوع': entry.type === 'vehicle' ? 'خودرویی' : 'نفری',
+            'درب/موقعیت': entry.gate,
+            'توضیحات': entry.description
+          });
+        });
+      });
+    });
+    return results;
+  }, [processedData, filterStartDate, filterEndDate, filterType, filterGate]);
+
+  const exportFilteredToCSV = () => {
+    if (filteredEntriesReport.length === 0) {
+      alert("داده‌ای برای خروجی با این فیلترها وجود ندارد.");
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(filteredEntriesReport);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Filtered_Report");
+    XLSX.writeFile(wb, `Filtered_Attendance_Report_${new Date().getTime()}.xlsx`);
+  };
+
   const exportHighTrafficReport = () => {
     if (highTrafficPeople.length === 0) return;
     const reportData = highTrafficPeople.map(p => ({
@@ -423,20 +498,37 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20 overflow-x-hidden" dir="rtl">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <FileSpreadsheet className="text-white w-6 h-6" />
+    <div className={`min-h-screen pb-20 overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`} dir="rtl">
+      <header className={`border-b sticky top-0 z-20 shadow-sm transition-colors duration-300 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <div className="bg-blue-600 p-3 rounded-xl shadow-lg">
+              <FileSpreadsheet className="text-white w-7 h-7" />
             </div>
-            <div className="text-right">
-              <h1 className="text-lg font-bold text-slate-800">تحلیلگر هوشمند تردد</h1>
-              <p className="text-[10px] text-slate-500 font-medium">واحد فناوری اطلاعات عمران آذرستان</p>
+            <div className="text-right flex flex-col gap-0.5">
+              <h1 className={`text-xl font-black transition-colors whitespace-nowrap leading-tight ${darkMode ? 'text-white' : 'text-slate-800'}`}>تحلیلگر هوشمند تردد گیت</h1>
+              <p className={`text-[11px] font-black transition-colors leading-tight ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>شرکت عمران آذرستان ( بوشهر )</p>
+              <p className={`text-[10px] font-bold transition-colors leading-tight ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>واحد فناوری اطلاعات و ارتباطات</p>
             </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-end">
+          <div className="flex flex-wrap items-center gap-4 w-full sm:w-auto justify-end">
+             {/* دکمه تم تیره */}
+             <div className="flex items-center gap-2">
+               <span className={`text-[10px] font-black uppercase tracking-wider ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                 {darkMode ? 'تم تیره' : 'تم روشن'}
+               </span>
+               <button 
+                  onClick={() => setDarkMode(!darkMode)}
+                  className={`p-2.5 rounded-xl border transition-all shadow-sm active:scale-95 ${
+                    darkMode ? 'bg-slate-700 border-slate-600 text-yellow-400 hover:bg-slate-600' : 'bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200'
+                  }`}
+                  title={darkMode ? "تم روشن" : "تم تیره"}
+               >
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+               </button>
+             </div>
+
              {/* دکمه نصب اپلیکیشن */}
              {deferredPrompt && (
                <button 
@@ -450,63 +542,93 @@ const App: React.FC = () => {
              )}
 
              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-                   <Settings2 size={16} className="text-slate-500" />
-                   <label className="text-[11px] font-black text-black whitespace-nowrap">بازه تجمیع (دقیقه):</label>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border shadow-sm transition-colors ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                   <Settings2 size={18} className={darkMode ? 'text-blue-400' : 'text-slate-500'} />
+                   <label className={`text-xs font-black whitespace-nowrap ${darkMode ? 'text-slate-200' : 'text-black'}`}>بازه تجمیع (دقیقه):</label>
                    <input 
                       type="number" 
                       min="1" 
                       max="120" 
-                      className="w-20 bg-white border border-slate-300 rounded-md text-center text-sm font-black py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-blue-900"
+                      className={`w-14 border rounded-lg text-center text-sm font-black py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        darkMode ? 'bg-slate-800 border-slate-600 text-blue-300' : 'bg-white border-slate-300 text-blue-900'
+                      }`}
                       value={mergeInterval}
                       onChange={(e) => setMergeInterval(Math.max(1, parseInt(e.target.value) || 1))}
                    />
                 </div>
-                <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm">
-                   <ShieldAlert size={16} className="text-orange-500" />
-                   <label className="text-[11px] font-black text-black whitespace-nowrap">حد مجاز (بار):</label>
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border shadow-sm transition-colors ${darkMode ? 'bg-slate-700 border-slate-600' : 'bg-slate-50 border-slate-200'}`}>
+                   <ShieldAlert size={18} className="text-orange-500" />
+                   <label className={`text-xs font-black whitespace-nowrap ${darkMode ? 'text-slate-200' : 'text-black'}`}>حد مجاز (بار):</label>
                    <input 
                       type="number" 
                       min="1" 
                       max="50" 
-                      className="w-20 bg-white border border-slate-300 rounded-md text-center text-sm font-black py-1 focus:outline-none focus:ring-1 focus:ring-orange-500 text-blue-900"
+                      className={`w-14 border rounded-lg text-center text-sm font-black py-1 focus:outline-none focus:ring-2 focus:ring-orange-500 transition-colors ${
+                        darkMode ? 'bg-slate-800 border-slate-600 text-orange-300' : 'bg-white border-slate-300 text-blue-900'
+                      }`}
                       value={trafficLimit}
                       onChange={(e) => setTrafficLimit(Math.max(1, parseInt(e.target.value) || 1))}
                    />
                 </div>
              </div>
 
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-3">
                 {Object.keys(rawParsedData).length > 0 && (
-                  <button 
-                      onClick={exportHighTrafficReport}
-                      className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-md active:scale-95 text-xs"
-                  >
-                      <FileDown size={18} />
-                      <span>گزارش نهایی</span>
-                  </button>
+                  <>
+                    <button 
+                        onClick={() => setShowFilters(!showFilters)}
+                        className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl font-black transition-all shadow-md active:scale-95 text-xs ${
+                          showFilters 
+                            ? 'bg-blue-600 text-white' 
+                            : darkMode ? 'bg-slate-700 text-slate-300 border border-slate-600' : 'bg-white text-slate-600 border border-slate-200'
+                        }`}
+                    >
+                        {showFilters ? <FilterX size={20} /> : <Filter size={20} />}
+                        <span>فیلتر پیشرفته</span>
+                    </button>
+
+                    <button 
+                        onClick={exportFilteredToCSV}
+                        className="flex items-center gap-3 bg-blue-500 text-white px-5 py-2.5 rounded-2xl font-black hover:bg-blue-600 transition-all shadow-md active:scale-95 text-xs"
+                    >
+                        <FileText size={20} />
+                        <span>خروجی فیلتر شده</span>
+                    </button>
+
+                    <button 
+                        onClick={exportHighTrafficReport}
+                        className="flex items-center gap-3 bg-emerald-600 text-white px-5 py-2.5 rounded-2xl font-black hover:bg-emerald-700 transition-all shadow-md active:scale-95 text-xs"
+                    >
+                        <FileDown size={20} />
+                        <span>گزارش نهایی</span>
+                    </button>
+                  </>
                 )}
                 
                 <button 
                     onClick={clearData}
-                    className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2 rounded-xl font-bold hover:bg-red-100 transition-all shadow-sm active:scale-95 text-xs"
+                    className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl font-black transition-all shadow-sm active:scale-95 text-xs ${
+                      darkMode ? 'bg-red-900/30 text-red-400 border border-red-900/50 hover:bg-red-900/50' : 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100'
+                    }`}
                     title="پاکسازی کامل حافظه برنامه"
                 >
-                    <XCircle size={18} />
+                    <XCircle size={20} />
                     <span>حذف داده‌ها</span>
                 </button>
              </div>
 
              <button 
                 onClick={downloadTemplate}
-                className="flex items-center gap-2 bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-bold hover:bg-slate-300 transition-all shadow-sm active:scale-95 text-xs"
+                className={`flex items-center gap-3 px-5 py-2.5 rounded-2xl font-black transition-all shadow-sm active:scale-95 text-xs ${
+                  darkMode ? 'bg-slate-700 text-slate-300 border border-slate-600 hover:bg-slate-600' : 'bg-slate-200 text-slate-700 border border-slate-300 hover:bg-slate-300'
+                }`}
               >
-                <Download size={18} />
+                <Download size={20} />
                 <span>دانلود نمونه</span>
               </button>
               
-             <label className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-md active:scale-95 text-xs font-bold">
-                <FileUp size={18} />
+             <label className="flex items-center gap-3 bg-blue-600 text-white px-5 py-2.5 rounded-2xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg active:scale-95 text-xs font-black">
+                <FileUp size={20} />
                 <span>بارگذاری فایل</span>
                 <input type="file" accept=".xlsx, .xls" className="hidden" onChange={handleFileUpload} />
              </label>
@@ -515,50 +637,129 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 mt-8">
+        {showFilters && Object.keys(rawParsedData).length > 0 && (
+          <div className={`mb-8 p-6 rounded-[32px] border shadow-xl transition-all animate-in fade-in slide-in-from-top-4 duration-300 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center gap-3 mb-6 border-b pb-4 border-slate-100 dark:border-slate-700">
+              <Filter className="text-blue-500" size={24} />
+              <h2 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>فیلترهای پیشرفته گزارش‌گیری</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>بازه زمانی (از تاریخ):</label>
+                <input 
+                  type="text" 
+                  placeholder="مثلاً 01/10/1404"
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>بازه زمانی (تا تاریخ):</label>
+                <input 
+                  type="text" 
+                  placeholder="مثلاً 30/10/1404"
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>نوع تردد:</label>
+                <select 
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value as any)}
+                >
+                  <option value="all">همه موارد</option>
+                  <option value="person">فقط نفری</option>
+                  <option value="vehicle">فقط خودرویی</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>درب / موقعیت:</label>
+                <select 
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={filterGate}
+                  onChange={(e) => setFilterGate(e.target.value)}
+                >
+                  <option value="all">همه درب‌ها</option>
+                  {allGates.map(gate => (
+                    <option key={gate} value={gate}>{gate}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+              <p className={`text-[10px] font-bold ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                * تعداد رکوردهای منطبق: <span className="text-blue-500 font-black">{filteredEntriesReport.length} مورد</span>
+              </p>
+              <button 
+                onClick={() => {
+                  setFilterStartDate('');
+                  setFilterEndDate('');
+                  setFilterType('all');
+                  setFilterGate('all');
+                }}
+                className="text-xs font-black text-red-500 hover:text-red-600 transition-colors"
+              >
+                پاکسازی فیلترها
+              </button>
+            </div>
+          </div>
+        )}
+
         {isProcessing ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-slate-200 shadow-sm mx-auto max-w-2xl">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">در حال پردازش داده‌ها...</h2>
-            <p className="text-slate-500 text-center px-6 text-sm">لطفاً شکیبا باشید، در حال تحلیل ترددهای پرسنل هستیم.</p>
+          <div className={`flex flex-col items-center justify-center py-24 rounded-3xl border shadow-sm mx-auto max-w-2xl transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-6"></div>
+            <h2 className={`text-2xl font-black mb-3 ${darkMode ? 'text-white' : 'text-slate-800'}`}>در حال پردازش داده‌ها...</h2>
+            <p className={`text-center px-10 text-base font-bold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>لطفاً شکیبا باشید، در حال تحلیل ترددهای پرسنل هستیم.</p>
           </div>
         ) : !Object.keys(rawParsedData).length ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200 shadow-sm mx-auto max-w-2xl">
-            <div className="bg-blue-50 p-6 rounded-full mb-6 text-blue-400">
-              <Download size={48} />
+          <div className={`flex flex-col items-center justify-center py-24 rounded-3xl border-2 border-dashed shadow-sm mx-auto max-w-2xl transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`p-8 rounded-full mb-8 transition-colors ${darkMode ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-blue-400'}`}>
+              <Download size={64} />
             </div>
-            <h2 className="text-xl font-bold text-slate-800 mb-2">در انتظار بارگذاری داده‌ها</h2>
-            <p className="text-slate-500 text-center px-6 text-sm">لطفاً فایل اکسل تردد پرسنل را جهت استخراج خودکار لیست افراد پرتردد بارگذاری نمایید.</p>
+            <h2 className={`text-2xl font-black mb-3 ${darkMode ? 'text-white' : 'text-slate-800'}`}>در انتظار بارگذاری داده‌ها</h2>
+            <p className={`text-center px-10 text-base font-bold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>لطفاً فایل اکسل تردد پرسنل را جهت استخراج خودکار لیست افراد پرتردد بارگذاری نمایید.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 space-y-4">
-              <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
-                <div className="relative mb-4">
-                  <Search className="absolute right-3 top-2.5 text-slate-400" size={18} />
+            <div className="lg:col-span-4 space-y-6">
+              <div className={`p-5 rounded-3xl shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                <div className="relative mb-6">
+                  <Search className="absolute right-4 top-3.5 text-slate-400" size={20} />
                   <input
                     type="text"
                     placeholder="جستجو در لیست..."
-                    className="w-full pr-10 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 text-sm font-bold"
+                    className={`w-full pr-12 pl-4 py-3 border rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-base font-black transition-colors ${
+                      darkMode ? 'bg-slate-900 border-slate-700 text-white placeholder-slate-600' : 'bg-slate-50 border-slate-200 text-slate-900'
+                    }`}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="max-h-[500px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                  <div className="flex justify-between items-center mb-2 px-1">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                <div className="max-h-[600px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                  <div className="flex justify-between items-center mb-3 px-2">
+                    <p className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       {showAll ? 'لیست تمامی پرسنل' : 'لیست افراد پرتردد'}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <label className="flex items-center gap-1 cursor-pointer">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
                         <input 
                           type="checkbox" 
                           checked={showAll} 
                           onChange={(e) => setShowAll(e.target.checked)}
-                          className="w-3 h-3 rounded text-blue-600 focus:ring-blue-500"
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-[9px] font-bold text-slate-500">نمایش همه</span>
+                        <span className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>نمایش همه</span>
                       </label>
-                      <span className="bg-orange-100 text-orange-600 text-[10px] px-2 py-0.5 rounded-full font-bold">{filteredPeople.length} نفر</span>
+                      <span className="bg-orange-100 text-orange-600 text-xs px-3 py-1 rounded-full font-black">{filteredPeople.length} نفر</span>
                     </div>
                   </div>
                   {filteredPeople.length === 0 ? (
@@ -571,26 +772,28 @@ const App: React.FC = () => {
                       <button
                         key={person.id}
                         onDoubleClick={() => setSelectedPersonId(person.id)}
-                        className={`w-full text-right p-3 rounded-xl flex items-center justify-between transition-all border select-none group ${
+                        className={`w-full text-right p-4 rounded-2xl flex items-center justify-between transition-all border select-none group ${
                           selectedPersonId === person.id 
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
-                          : 'bg-white text-slate-700 border-slate-50 hover:border-blue-200 hover:bg-blue-50/50'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-lg scale-[1.02]' 
+                          : darkMode 
+                            ? 'bg-slate-800 text-slate-200 border-slate-700 hover:border-blue-500 hover:bg-slate-700'
+                            : 'bg-white text-slate-700 border-slate-50 hover:border-blue-200 hover:bg-blue-50/50'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          <div className={`p-1.5 rounded-lg ${selectedPersonId === person.id ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-100'}`}>
-                            <Users size={14} />
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2.5 rounded-xl ${selectedPersonId === person.id ? 'bg-blue-500 text-white' : darkMode ? 'bg-slate-700 text-slate-500 group-hover:bg-blue-900' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-100'}`}>
+                            <Users size={18} />
                           </div>
                           <div>
-                            <div className="font-bold text-xs leading-tight">{person.name}</div>
-                            <div className={`text-[9px] mt-0.5 ${selectedPersonId === person.id ? 'text-blue-100' : 'text-slate-400'}`}>کد: {person.id}</div>
+                            <div className="font-black text-sm leading-tight">{person.name}</div>
+                            <div className={`text-xs mt-1 font-bold ${selectedPersonId === person.id ? 'text-blue-100' : 'text-slate-400'}`}>کد: {person.id}</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${selectedPersonId === person.id ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black px-2 py-1 rounded-full ${selectedPersonId === person.id ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-600'}`}>
                              {person.highTrafficDays} روز
                           </span>
-                          <ChevronLeft size={12} className={selectedPersonId === person.id ? 'text-white' : 'text-slate-300'} />
+                          <ChevronLeft size={16} className={selectedPersonId === person.id ? 'text-white' : 'text-slate-300'} />
                         </div>
                       </button>
                     ))
@@ -601,18 +804,18 @@ const App: React.FC = () => {
 
             <div className="lg:col-span-8">
               {!selectedPerson ? (
-                <div className="space-y-6">
-                  <div className="bg-white p-8 rounded-3xl border border-slate-200 text-center shadow-sm">
-                    <div className="bg-blue-50 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 text-blue-600">
-                      <Trophy size={32} />
+                <div className="space-y-8">
+                  <div className={`p-12 rounded-[40px] border text-center shadow-lg transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                    <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md transition-colors ${darkMode ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                      <Trophy size={40} />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-800">تحلیل هوشمند بر اساس پارامترها</h3>
-                    <p className="text-slate-500 mt-2 text-sm leading-relaxed">
-                      برنامه با تحلیل بازه <span className="font-bold text-blue-600">{mergeInterval} دقیقه‌ای</span> و حد مجاز <span className="font-bold text-blue-600">{trafficLimit} بار</span>، لیست سمت راست را استخراج کرده است.
+                    <h3 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>تحلیل هوشمند بر اساس پارامترها</h3>
+                    <p className={`mt-4 text-base font-bold leading-relaxed ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                      برنامه با تحلیل بازه <span className="font-black text-blue-600">{mergeInterval} دقیقه‌ای</span> و حد مجاز <span className="font-black text-blue-600">{trafficLimit} بار</span>، لیست سمت راست را استخراج کرده است.
                     </p>
-                    <div className="mt-6 flex flex-col items-center gap-3">
-                        <div className="flex items-center gap-2 text-blue-500 text-[11px] font-bold bg-blue-50 px-4 py-2 rounded-xl">
-                            <Activity size={14} />
+                    <div className="mt-10 flex flex-col items-center gap-4">
+                        <div className={`flex items-center gap-3 text-sm font-black px-6 py-3 rounded-2xl transition-colors ${darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-50 text-blue-500'}`}>
+                            <Activity size={18} />
                             <span>راهنما: روی نام فرد در لیست سمت راست دبل کلیک کنید.</span>
                         </div>
                     </div>
@@ -630,15 +833,15 @@ const App: React.FC = () => {
                      </button>
                   </div>
                   
-                  <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-200 flex items-center gap-5 flex-row-reverse">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center text-white text-2xl font-black shadow-md">
+                  <div className={`p-6 rounded-[32px] shadow-sm border flex items-center gap-6 flex-row-reverse transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                    <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl">
                       {selectedPerson.name[0]}
                     </div>
                     <div className="text-right flex-1">
-                      <h2 className="text-xl font-black text-slate-800">{selectedPerson.name}</h2>
-                      <div className="flex gap-2 mt-1 justify-end">
-                        <span className="text-slate-500 text-[9px] bg-slate-100 px-2 py-0.5 rounded-full font-bold">کد: {selectedPerson.id}</span>
-                        <span className="text-orange-600 text-[9px] bg-orange-50 px-2 py-0.5 rounded-full font-bold">{selectedPersonStats?.highTrafficCount} روز تردد غیرمجاز</span>
+                      <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{selectedPerson.name}</h2>
+                      <div className="flex gap-3 mt-2 justify-end">
+                        <span className={`text-xs px-3 py-1 rounded-full font-black ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>کد: {selectedPerson.id}</span>
+                        <span className="text-orange-600 text-xs bg-orange-50 px-3 py-1 rounded-full font-black">{selectedPersonStats?.highTrafficCount} روز تردد غیرمجاز</span>
                       </div>
                     </div>
                   </div>
@@ -653,54 +856,54 @@ const App: React.FC = () => {
                           onDayClick={(date) => setSelectedDate(date)}
                         />
                         
-                        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-3">
-                            <div className="flex items-center gap-2 border-b border-slate-50 pb-2">
-                                <CalendarDays size={16} className="text-blue-600" />
-                                <h4 className="text-[11px] font-black text-slate-700">خلاصه وضعیت ماهانه</h4>
+                        <div className={`p-5 rounded-3xl border shadow-sm flex flex-col gap-4 transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                            <div className={`flex items-center gap-3 border-b pb-3 ${darkMode ? 'border-slate-700' : 'border-slate-100'}`}>
+                                <CalendarDays size={20} className="text-blue-600" />
+                                <h4 className={`text-sm font-black ${darkMode ? 'text-slate-200' : 'text-slate-700'}`}>خلاصه وضعیت ماهانه</h4>
                             </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100 flex flex-col items-center">
-                                    <XCircle size={14} className="text-slate-400 mb-1" />
-                                    <span className="text-[14px] font-black text-slate-800">{selectedPersonStats?.summary.noAttendanceCount}</span>
-                                    <span className="text-[8px] font-bold text-slate-500">بدون تردد</span>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className={`p-3 rounded-2xl border flex flex-col items-center transition-colors ${darkMode ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+                                    <XCircle size={18} className="text-slate-400 mb-2" />
+                                    <span className={`text-xl font-black ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{selectedPersonStats?.summary.noAttendanceCount}</span>
+                                    <span className="text-[10px] font-black text-slate-500">بدون تردد</span>
                                 </div>
-                                <div className="bg-emerald-50 p-2 rounded-xl border border-emerald-100 flex flex-col items-center">
-                                    <CheckCircle2 size={14} className="text-emerald-500 mb-1" />
-                                    <span className="text-[14px] font-black text-emerald-800">{selectedPersonStats?.summary.normalAttendanceCount}</span>
-                                    <span className="text-[8px] font-bold text-emerald-600">مجاز</span>
+                                <div className={`p-3 rounded-2xl border flex flex-col items-center transition-colors ${darkMode ? 'bg-emerald-900/20 border-emerald-900/30' : 'bg-emerald-50 border-emerald-100'}`}>
+                                    <CheckCircle2 size={18} className="text-emerald-500 mb-2" />
+                                    <span className={`text-xl font-black ${darkMode ? 'text-emerald-300' : 'text-emerald-800'}`}>{selectedPersonStats?.summary.normalAttendanceCount}</span>
+                                    <span className="text-[10px] font-black text-emerald-600">مجاز</span>
                                 </div>
-                                <div className="bg-red-50 p-2 rounded-xl border border-red-100 flex flex-col items-center">
-                                    <AlertCircle size={14} className="text-red-500 mb-1" />
-                                    <span className="text-[14px] font-black text-red-800">{selectedPersonStats?.summary.highAttendanceCount}</span>
-                                    <span className="text-[8px] font-bold text-red-600">غیرمجاز</span>
+                                <div className={`p-3 rounded-2xl border flex flex-col items-center transition-colors ${darkMode ? 'bg-red-900/20 border-red-900/30' : 'bg-red-50 border-red-100'}`}>
+                                    <AlertCircle size={18} className="text-red-500 mb-2" />
+                                    <span className={`text-xl font-black ${darkMode ? 'text-red-300' : 'text-red-800'}`}>{selectedPersonStats?.summary.highAttendanceCount}</span>
+                                    <span className="text-[10px] font-black text-red-600">غیرمجاز</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {selectedDate && selectedPerson?.dailyLogs[selectedDate] ? (
-                      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-                        <div className="p-4 border-b border-slate-100 bg-blue-50/20 text-center flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <CalendarIcon size={18} className="text-blue-500" />
-                            <h3 className="font-bold text-slate-800 text-xs">جزئیات تردد: {formatFriendlyJalaliDate(selectedDate)}</h3>
+                      <div className={`rounded-[32px] border overflow-hidden shadow-lg flex flex-col transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                        <div className={`p-5 border-b text-center flex items-center justify-between gap-3 transition-colors ${darkMode ? 'bg-blue-900/20 border-slate-700' : 'bg-blue-50/20 border-slate-100'}`}>
+                          <div className="flex items-center gap-3">
+                            <CalendarIcon size={22} className="text-blue-500" />
+                            <h3 className={`font-black text-sm ${darkMode ? 'text-white' : 'text-slate-800'}`}>جزئیات تردد: {formatFriendlyJalaliDate(selectedDate)}</h3>
                           </div>
-                          <button onClick={() => setSelectedDate(null)} className="text-slate-400 hover:text-slate-600">
-                            <XCircle size={16} />
+                          <button onClick={() => setSelectedDate(null)} className="text-slate-400 hover:text-red-500 transition-colors">
+                            <XCircle size={24} />
                           </button>
                         </div>
-                        <div className="p-4 space-y-3 overflow-y-auto max-h-[400px] custom-scrollbar">
+                        <div className="p-5 space-y-4 overflow-y-auto max-h-[500px] custom-scrollbar">
                           {/* خلاصه روزانه */}
-                          <div className="flex gap-2 mb-4">
-                            <div className="flex-1 bg-blue-50 border border-blue-100 p-2 rounded-2xl flex flex-col items-center">
-                              <span className="text-[10px] font-bold text-blue-600">تردد نفری</span>
-                              <span className="text-lg font-black text-blue-800">
+                          <div className="flex gap-3 mb-6">
+                            <div className={`flex-1 p-3 rounded-2xl flex flex-col items-center border transition-colors ${darkMode ? 'bg-blue-900/20 border-blue-900/30' : 'bg-blue-50 border-blue-100'}`}>
+                              <span className="text-[11px] font-black text-blue-600">تردد نفری</span>
+                              <span className={`text-2xl font-black ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>
                                 {selectedPerson.dailyLogs[selectedDate].filter(e => e.type !== 'vehicle').length}
                               </span>
                             </div>
-                            <div className="flex-1 bg-amber-50 border border-amber-100 p-2 rounded-2xl flex flex-col items-center">
-                              <span className="text-[10px] font-bold text-amber-600">تردد خودرویی</span>
-                              <span className="text-lg font-black text-amber-800">
+                            <div className={`flex-1 p-3 rounded-2xl flex flex-col items-center border transition-colors ${darkMode ? 'bg-amber-900/20 border-amber-900/30' : 'bg-amber-50 border-amber-100'}`}>
+                              <span className="text-[11px] font-black text-amber-600">تردد خودرویی</span>
+                              <span className={`text-2xl font-black ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
                                 {selectedPerson.dailyLogs[selectedDate].filter(e => e.type === 'vehicle').length}
                               </span>
                             </div>
@@ -709,44 +912,46 @@ const App: React.FC = () => {
                           {selectedPerson.dailyLogs[selectedDate].map((entry, idx) => {
                             const isVehicle = entry.type === 'vehicle';
                             const themeClass = isVehicle 
-                              ? 'bg-amber-50/50 border-amber-200/50' 
-                              : 'bg-blue-50/50 border-blue-200/50';
-                            const iconBgClass = isVehicle ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600';
+                              ? darkMode ? 'bg-amber-900/10 border-amber-900/30' : 'bg-amber-50/50 border-amber-200/50' 
+                              : darkMode ? 'bg-blue-900/10 border-blue-900/30' : 'bg-blue-50/50 border-blue-200/50';
+                            const iconBgClass = isVehicle 
+                              ? darkMode ? 'bg-amber-900/40 text-amber-400' : 'bg-amber-100 text-amber-600' 
+                              : darkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-600';
                             
                             return (
-                              <div key={idx} className={`flex flex-col p-3 rounded-2xl border shadow-sm transition-all hover:shadow-md ${themeClass} gap-2`}>
+                              <div key={idx} className={`flex flex-col p-4 rounded-2xl border shadow-sm transition-all hover:shadow-md ${themeClass} gap-3`}>
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`p-2.5 rounded-xl shadow-inner ${iconBgClass}`}>
-                                      {isVehicle ? <Car size={18} /> : <UserIcon size={18} />}
+                                  <div className="flex items-center gap-4">
+                                    <div className={`p-3 rounded-2xl shadow-inner ${iconBgClass}`}>
+                                      {isVehicle ? <Car size={22} /> : <UserIcon size={22} />}
                                     </div>
                                     <div className="flex flex-col">
-                                      <span className="font-black text-slate-800 text-base leading-none">{entry.time}</span>
-                                      <span className={`text-[9px] font-bold mt-1 uppercase tracking-wider ${isVehicle ? 'text-amber-600' : 'text-blue-600'}`}>
+                                      <span className={`font-black text-lg leading-none ${darkMode ? 'text-white' : 'text-slate-800'}`}>{entry.time}</span>
+                                      <span className={`text-[10px] font-black mt-1.5 uppercase tracking-wider ${isVehicle ? 'text-amber-500' : 'text-blue-500'}`}>
                                         {isVehicle ? 'تردد با خودرو' : 'تردد پیاده / نفری'}
                                       </span>
                                     </div>
                                   </div>
                                   
                                   <div className="flex flex-col items-end gap-1">
-                                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full font-black text-[10px] shadow-sm ${
+                                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-black text-xs shadow-sm ${
                                       idx % 2 === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'
                                     }`}>
-                                      {idx % 2 === 0 ? <LogIn size={12} /> : <LogOut size={12} />}
+                                      {idx % 2 === 0 ? <LogIn size={14} /> : <LogOut size={14} />}
                                       <span>{idx % 2 === 0 ? 'ورود' : 'خروج'}</span>
                                     </div>
                                   </div>
                                 </div>
                                 
-                                <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold border-t border-slate-200/30 pt-2 mt-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="p-1 bg-white rounded-md border border-slate-100">
-                                      <DoorOpen size={12} className="text-slate-400" />
+                                <div className={`flex items-center justify-between text-xs font-black border-t pt-3 mt-1 transition-colors ${darkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200/30 text-slate-500'}`}>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`p-1.5 rounded-lg border transition-colors ${darkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-100'}`}>
+                                      <DoorOpen size={14} className="text-slate-400" />
                                     </div>
-                                    <span>موقعیت: <span className="text-slate-700">{entry.gate}</span></span>
+                                    <span>موقعیت: <span className={darkMode ? 'text-slate-200' : 'text-slate-700'}>{entry.gate}</span></span>
                                   </div>
-                                  <div className="flex items-center gap-1 opacity-60">
-                                    <CheckCircle2 size={10} className="text-emerald-500" />
+                                  <div className="flex items-center gap-1.5 opacity-60">
+                                    <CheckCircle2 size={12} className="text-emerald-500" />
                                     <span>تایید شده</span>
                                   </div>
                                 </div>
@@ -756,38 +961,38 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     ) : selectedPersonStats && selectedPersonStats.highTrafficDetails.length > 0 && (
-                      <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-                        <div className="p-4 border-b border-slate-100 bg-orange-50/20 text-center flex items-center justify-center gap-2">
-                          <AlertCircle size={18} className="text-orange-500" />
-                          <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider">روزهای پرتردد (بحرانی)</h3>
+                      <div className={`rounded-[32px] border overflow-hidden shadow-lg flex flex-col transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                        <div className={`p-5 border-b text-center flex items-center justify-center gap-3 transition-colors ${darkMode ? 'bg-orange-900/20 border-slate-700' : 'bg-orange-50/20 border-slate-100'}`}>
+                          <AlertCircle size={22} className="text-orange-500" />
+                          <h3 className={`font-black text-sm uppercase tracking-wider ${darkMode ? 'text-white' : 'text-slate-800'}`}>روزهای پرتردد (بحرانی)</h3>
                         </div>
-                        <div className="divide-y divide-slate-50 overflow-y-auto custom-scrollbar flex-1 max-h-[400px]">
+                        <div className="divide-y divide-slate-50 overflow-y-auto custom-scrollbar flex-1 max-h-[500px]">
                           {selectedPersonStats.highTrafficDetails.map(([date, entries]) => (
-                            <div key={date} className="p-4 hover:bg-slate-50/30 transition-colors flex flex-col items-center cursor-pointer" onClick={() => setSelectedDate(date)}>
-                              <div className="flex flex-col items-center gap-1 mb-3">
-                                <span className="font-bold text-slate-800 bg-white border border-slate-200 px-3 py-1 rounded-lg text-[10px] shadow-sm">
+                            <div key={date} className={`p-5 transition-colors flex flex-col items-center cursor-pointer ${darkMode ? 'hover:bg-slate-700/50 divide-slate-700' : 'hover:bg-slate-50/30 divide-slate-50'}`} onClick={() => setSelectedDate(date)}>
+                              <div className="flex flex-col items-center gap-2 mb-4">
+                                <span className={`font-black border px-4 py-1.5 rounded-xl text-xs shadow-sm transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'}`}>
                                   {formatFriendlyJalaliDate(date)}
                                 </span>
-                                <span className="text-[8px] text-orange-700 font-bold bg-orange-100 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] text-orange-700 font-black bg-orange-100 px-3 py-1 rounded-full">
                                   {entries.length} تردد
                                 </span>
                               </div>
                               
-                              <div className="grid grid-cols-2 gap-2 w-full">
+                              <div className="grid grid-cols-2 gap-3 w-full">
                                 {[...entries].sort((a,b) => String(a.time).localeCompare(String(b.time))).map((entry, idx) => {
                                   const isEntry = idx % 2 === 0;
                                   return (
                                     <div 
                                       key={idx} 
-                                      className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                                      className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
                                         isEntry 
-                                          ? 'bg-emerald-50 border-emerald-100 text-emerald-700' 
-                                          : 'bg-sky-50 border-sky-100 text-sky-700'
+                                          ? darkMode ? 'bg-emerald-900/20 border-emerald-900/30 text-emerald-300' : 'bg-emerald-50 border-emerald-100 text-emerald-700' 
+                                          : darkMode ? 'bg-sky-900/20 border-sky-900/30 text-sky-300' : 'bg-sky-50 border-sky-100 text-sky-700'
                                       }`}
                                     >
-                                      <div className="flex items-center gap-1">
-                                        {isEntry ? <LogIn size={10} /> : <LogOut size={10} />}
-                                        <span className="text-[10px] font-black">{entry.time}</span>
+                                      <div className="flex items-center gap-2">
+                                        {isEntry ? <LogIn size={14} /> : <LogOut size={14} />}
+                                        <span className="text-sm font-black">{entry.time}</span>
                                       </div>
                                     </div>
                                   );
@@ -806,13 +1011,13 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 px-4 py-2 z-20">
+      <footer className={`fixed bottom-0 left-0 right-0 border-t px-6 py-3 z-20 transition-colors ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white/80 border-slate-200'} backdrop-blur-md`}>
         <div className="max-w-7xl mx-auto flex flex-row items-center justify-between">
-           <div className="text-[9px] font-bold text-slate-600 text-right">
+           <div className={`text-xs font-black text-right ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
               واحد فناوری اطلاعات و ارتباطات شرکت عمران آذرستان
            </div>
-           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-              نسخه ۲.۶ (PWA & Offline Optimized)
+           <p className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+              نسخه ۳.۰ (Dark Mode & HD Optimized)
            </p>
         </div>
       </footer>
