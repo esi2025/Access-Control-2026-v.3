@@ -8,9 +8,10 @@ interface MonthlyReportProps {
   year: number;
   month: number;
   onClose: () => void;
+  darkMode?: boolean;
 }
 
-const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear, month: initialMonth, onClose }) => {
+const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear, month: initialMonth, onClose, darkMode = false }) => {
   const [year, setYear] = React.useState(initialYear);
   const [month, setMonth] = React.useState(initialMonth);
 
@@ -51,17 +52,19 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 print:p-0 print:bg-white print:static print:inset-auto">
-      <div className="bg-white w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col rounded-3xl shadow-2xl print:shadow-none print:max-h-none print:rounded-none">
+      <div className={`w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col rounded-3xl shadow-2xl print:shadow-none print:max-h-none print:rounded-none transition-colors ${darkMode ? 'bg-slate-900 border border-slate-700' : 'bg-white'}`}>
         {/* Header - Hidden in Print */}
-        <div className="p-6 border-b flex justify-between items-center bg-slate-50 print:hidden">
+        <div className={`p-6 border-b flex justify-between items-center print:hidden transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
           <div className="flex items-center gap-4">
             <button 
               onClick={onClose}
-              className="p-2 hover:bg-slate-200 rounded-full transition-colors"
+              className={`p-2 rounded-full transition-colors flex items-center gap-2 px-4 py-2 ${darkMode ? 'bg-slate-700 text-slate-200 hover:bg-slate-600' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+              title="بستن"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+              <span className="font-black text-xs">بستن</span>
             </button>
-            <h2 className="text-xl font-black text-slate-800">پیش‌نمایش گزارش ماهیانه</h2>
+            <h2 className={`text-xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>پیش‌نمایش گزارش ماهیانه</h2>
           </div>
           <button 
             onClick={handlePrint}
@@ -78,34 +81,34 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
             {/* Report Header */}
             <div className="flex justify-between items-end mb-6">
               <div className="flex items-center gap-4">
-                <div className="flex items-center border rounded-lg overflow-hidden bg-white shadow-sm">
-                  <button onClick={prevMonth} className="p-2 hover:bg-slate-100 border-l"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-                  <span className="px-4 py-1 font-black text-slate-800">{JALALI_MONTHS[month - 1]} {year}</span>
-                  <button onClick={nextMonth} className="p-2 hover:bg-slate-100 border-r"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+                <div className={`flex items-center border rounded-lg overflow-hidden shadow-sm transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <button onClick={prevMonth} className={`p-2 hover:bg-slate-700 transition-colors ${darkMode ? 'text-slate-300 border-l border-slate-700' : 'text-slate-600 border-l border-slate-200 hover:bg-slate-100'}`}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+                  <span className={`px-4 py-1 font-black ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>{JALALI_MONTHS[month - 1]} {year}</span>
+                  <button onClick={nextMonth} className={`p-2 hover:bg-slate-700 transition-colors ${darkMode ? 'text-slate-300 border-r border-slate-700' : 'text-slate-600 border-r border-slate-200 hover:bg-slate-100'}`}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
                 </div>
-                <button onClick={goToCurrent} className="text-xs font-black text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50">ماه جاری</button>
+                <button onClick={goToCurrent} className={`text-xs font-black px-3 py-1.5 rounded-lg transition-colors ${darkMode ? 'text-blue-400 border border-blue-900/50 hover:bg-blue-900/30' : 'text-blue-600 border border-blue-200 hover:bg-blue-50'}`}>ماه جاری</button>
               </div>
-              <h1 className="text-2xl font-black text-slate-900">تردد ماهیانه</h1>
+              <h1 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-900'}`}>تردد ماهیانه</h1>
             </div>
 
-            {/* Personnel Info Section (Optional but good for context) */}
-            <div className="mb-4 flex justify-between text-sm font-black text-slate-600 border-b pb-2">
+            {/* Personnel Info Section */}
+            <div className={`mb-4 flex justify-between text-sm font-black border-b pb-2 transition-colors ${darkMode ? 'text-slate-400 border-slate-700' : 'text-slate-600 border-slate-200'}`}>
                 <span>نام پرسنل: {person.name}</span>
                 <span>کد پرسنلی: {person.id}</span>
             </div>
 
             {/* Table */}
-            <div className="border border-slate-400">
+            <div className={`border ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>
               <table className="w-full border-collapse text-[10px] font-black">
                 <thead>
-                  <tr className="bg-[#f2f2f2] text-slate-700">
-                    <th className="border border-slate-400 p-1 w-[120px]">تاریخ</th>
+                  <tr className={`transition-colors ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-[#f2f2f2] text-slate-700'}`}>
+                    <th className={`border p-1 w-[120px] ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>تاریخ</th>
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(num => (
-                      <th key={num} className="border border-slate-400 p-0.5 w-8">{num}</th>
+                      <th key={num} className={`border p-0.5 w-8 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>{num}</th>
                     ))}
-                    <th className="border border-slate-400 p-1 w-32">شیفت و مجوز روزانه</th>
-                    <th className="border border-slate-400 p-1 w-16">قبل</th>
-                    <th className="border border-slate-400 p-1 w-16">بعد</th>
+                    <th className={`border p-1 w-32 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>شیفت و مجوز روزانه</th>
+                    <th className={`border p-1 w-16 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>قبل</th>
+                    <th className={`border p-1 w-16 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>بعد</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -115,32 +118,31 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
                     const entries = getDayEntries(day);
                     const dateStr = `${month.toString().padStart(2, '0')}/${day.toString().padStart(2, '0')}`;
                     
-                    // Check for leave or holiday based on entries (simplified logic)
-                    const isLeave = false; // Placeholder for future logic
+                    const rowBg = isFriday 
+                      ? darkMode ? 'bg-red-900/10' : 'bg-[#fff5f5]' 
+                      : darkMode ? 'bg-slate-900' : 'bg-[#fffdf0]';
 
                     return (
-                      <tr key={day} className={`text-center h-7 ${isFriday ? 'bg-[#fff5f5]' : 'bg-[#fffdf0]'}`}>
-                        <td className={`border border-slate-400 p-0.5 text-right pr-2 ${isFriday ? 'text-red-600' : 'text-slate-800'}`}>
+                      <tr key={day} className={`text-center h-7 transition-colors ${rowBg}`}>
+                        <td className={`border p-0.5 text-right pr-2 ${darkMode ? 'border-slate-700' : 'border-slate-400'} ${isFriday ? 'text-red-500' : darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
                           {weekday} {dateStr}
                         </td>
                         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(idx => (
-                          <td key={idx} className="border border-slate-400 p-0.5">
+                          <td key={idx} className={`border p-0.5 ${darkMode ? 'border-slate-700 text-slate-300' : 'border-slate-400 text-slate-900'}`}>
                             {entries[idx]?.time || ''}
                           </td>
                         ))}
-                        <td className="border border-slate-400 p-0.5">
+                        <td className={`border p-0.5 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>
                           {isFriday ? (
-                            <span className="text-red-600">تعطیل</span>
-                          ) : isLeave ? (
-                            <span className="text-slate-600">۱۸۵ - مرخصی روزانه</span>
+                            <span className="text-red-500">تعطیل</span>
                           ) : entries.length > 0 ? (
-                            "۱۸۵"
+                            <span className={darkMode ? 'text-slate-400' : 'text-slate-700'}>۱۸۵</span>
                           ) : (
                             ""
                           )}
                         </td>
-                        <td className="border border-slate-400 p-0.5"></td>
-                        <td className="border border-slate-400 p-0.5"></td>
+                        <td className={`border p-0.5 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}></td>
+                        <td className={`border p-0.5 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}></td>
                       </tr>
                     );
                   })}

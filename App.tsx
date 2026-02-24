@@ -1039,6 +1039,7 @@ const App: React.FC = () => {
           year={selectedPersonStats?.year || 1404}
           month={selectedPersonStats?.month || 1}
           onClose={() => setReportPersonId(null)}
+          darkMode={darkMode}
         />
       )}
     </div>
