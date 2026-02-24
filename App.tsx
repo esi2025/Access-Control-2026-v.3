@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { RawRecord, PersonAttendance, AttendanceEntry } from './types';
 import Calendar from './components/Calendar';
+import MonthlyReport from './components/MonthlyReport';
 import { parseJalaliDate, JALALI_MONTHS, excelSerialToJalali, getDaysInMonth } from './utils/jalali';
 
 const excelTimeToSeconds = (time: any): number => {
@@ -119,6 +120,7 @@ const App: React.FC = () => {
   const [showAll, setShowAll] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [reportPersonId, setReportPersonId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'person' | 'vehicle'>('all');
   const [filterGate, setFilterGate] = useState<string>('all');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
@@ -498,7 +500,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`min-h-screen pb-20 overflow-x-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`} dir="rtl">
+    <div className={`h-screen flex flex-col overflow-hidden transition-colors duration-300 ${darkMode ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`} dir="rtl">
       <header className={`border-b sticky top-0 z-20 shadow-sm transition-colors duration-300 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -636,7 +638,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 mt-8">
+      <main className="max-w-7xl mx-auto px-4 mt-4 flex-1 overflow-hidden flex flex-col w-full pb-4">
         {showFilters && Object.keys(rawParsedData).length > 0 && (
           <div className={`mb-8 p-6 rounded-[32px] border shadow-xl transition-all animate-in fade-in slide-in-from-top-4 duration-300 ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
             <div className="flex items-center gap-3 mb-6 border-b pb-4 border-slate-100 dark:border-slate-700">
@@ -729,9 +731,9 @@ const App: React.FC = () => {
             <p className={`text-center px-10 text-base font-bold ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>لطفاً فایل اکسل تردد پرسنل را جهت استخراج خودکار لیست افراد پرتردد بارگذاری نمایید.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 space-y-6">
-              <div className={`p-5 rounded-3xl shadow-sm border transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 overflow-hidden">
+            <div className="lg:col-span-4 flex flex-col overflow-hidden">
+              <div className={`p-5 rounded-3xl shadow-sm border flex flex-col flex-1 overflow-hidden transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                 <div className="relative mb-6">
                   <Search className="absolute right-4 top-3.5 text-slate-400" size={20} />
                   <input
@@ -744,7 +746,7 @@ const App: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="max-h-[600px] overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
                   <div className="flex justify-between items-center mb-3 px-2">
                     <p className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
                       {showAll ? 'لیست تمامی پرسنل' : 'لیست افراد پرتردد'}
@@ -802,9 +804,9 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="lg:col-span-8">
+            <div className="lg:col-span-8 flex flex-col overflow-hidden">
               {!selectedPerson ? (
-                <div className="space-y-8">
+                <div className="flex-1 flex flex-col justify-center">
                   <div className={`p-12 rounded-[40px] border text-center shadow-lg transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                     <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-md transition-colors ${darkMode ? 'bg-slate-700 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
                       <Trophy size={40} />
@@ -822,7 +824,7 @@ const App: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-6">
+                <div className="flex-1 flex flex-col overflow-hidden space-y-4">
                   <div className="flex justify-start">
                      <button 
                         onClick={() => setSelectedPersonId(null)}
@@ -833,13 +835,21 @@ const App: React.FC = () => {
                      </button>
                   </div>
                   
-                  <div className={`p-6 rounded-[32px] shadow-sm border flex items-center gap-6 flex-row-reverse transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                  <div className="flex-1 overflow-y-auto space-y-6 pr-1 custom-scrollbar">
+                    <div className={`p-6 rounded-[32px] shadow-sm border flex items-center gap-6 flex-row-reverse transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
                     <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl flex items-center justify-center text-white text-3xl font-black shadow-xl">
                       {selectedPerson.name[0]}
                     </div>
                     <div className="text-right flex-1">
                       <h2 className={`text-2xl font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>{selectedPerson.name}</h2>
-                      <div className="flex gap-3 mt-2 justify-end">
+                      <div className="flex gap-3 mt-2 justify-end items-center">
+                        <button 
+                          onClick={() => setReportPersonId(selectedPerson.id)}
+                          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-1.5 rounded-xl text-xs font-black hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                        >
+                          <FileText size={14} />
+                          <span>خروجی PDF ماهیانه</span>
+                        </button>
                         <span className={`text-xs px-3 py-1 rounded-full font-black ${darkMode ? 'bg-slate-700 text-slate-400' : 'bg-slate-100 text-slate-500'}`}>کد: {selectedPerson.id}</span>
                         <span className="text-orange-600 text-xs bg-orange-50 px-3 py-1 rounded-full font-black">{selectedPersonStats?.highTrafficCount} روز تردد غیرمجاز</span>
                       </div>
@@ -1005,22 +1015,32 @@ const App: React.FC = () => {
                     )}
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-        )}
-      </main>
+        </div>
+      )}
+    </main>
 
-      <footer className={`fixed bottom-0 left-0 right-0 border-t px-6 py-3 z-20 transition-colors ${darkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white/80 border-slate-200'} backdrop-blur-md`}>
+      <footer className={`border-t px-6 py-2 z-20 transition-colors ${darkMode ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
         <div className="max-w-7xl mx-auto flex flex-row items-center justify-between">
-           <div className={`text-xs font-black text-right ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+           <div className={`text-[10px] font-black text-right ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
               واحد فناوری اطلاعات و ارتباطات شرکت عمران آذرستان
            </div>
-           <p className={`text-xs font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+           <p className={`text-[10px] font-black uppercase tracking-widest ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
               نسخه ۳.۰ (Dark Mode & HD Optimized)
            </p>
         </div>
       </footer>
+
+      {reportPersonId && processedData[reportPersonId] && (
+        <MonthlyReport 
+          person={processedData[reportPersonId]}
+          year={selectedPersonStats?.year || 1404}
+          month={selectedPersonStats?.month || 1}
+          onClose={() => setReportPersonId(null)}
+        />
+      )}
     </div>
   );
 };

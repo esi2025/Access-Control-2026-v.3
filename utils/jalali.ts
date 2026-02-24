@@ -54,6 +54,13 @@ export const getFirstDayWeekday = (month: number, year: number): number => {
   return 0;
 };
 
+export const getWeekdayName = (day: number, month: number, year: number): string => {
+  const weekdays = ["شنبه", "یکشنبه", "دوشنبه", "سه شنبه", "چهارشنبه", "پنج شنبه", "جمعه"];
+  const firstWeekday = getFirstDayWeekday(month, year);
+  const currentWeekday = (firstWeekday + day - 1) % 7;
+  return weekdays[currentWeekday];
+};
+
 export const parseJalaliDate = (dateStr: string) => {
   // Format: DD/MM/YYYY
   const parts = dateStr.split('/');
