@@ -11,6 +11,12 @@ interface MonthlyReportProps {
   darkMode?: boolean;
 }
 
+const timeToSeconds = (time: string): number => {
+  if (!time) return 0;
+  const parts = time.split(':');
+  return parseInt(parts[0] || '0') * 3600 + parseInt(parts[1] || '0') * 60 + parseInt(parts[2] || '0');
+};
+
 const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear, month: initialMonth, onClose, darkMode = false }) => {
   const [year, setYear] = React.useState(initialYear);
   const [month, setMonth] = React.useState(initialMonth);
@@ -122,36 +128,53 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
                       ? darkMode ? 'bg-red-900/10' : 'bg-[#fff5f5]' 
                       : darkMode ? 'bg-slate-900' : 'bg-[#fffdf0]';
 
-                    // Split entries by direction
-                    const inEntries = entries.filter(e => e.direction === 'in');
-                    const outEntries = entries.filter(e => e.direction === 'out');
-                    const unknownEntries = entries.filter(e => e.direction === 'unknown');
+                    // Chronological distribution logic
+                    const sortedEntries = [...entries].sort((a, b) => timeToSeconds(a.time) - timeToSeconds(b.time));
+                    const pairs = Array.from({ length: 6 }, () => ({ in: '', out: '' }));
+                    let currentPairIdx = 0;
 
-                    // If we have unknown entries, we might need to distribute them. 
-                    // But usually, the user's file will have Inreader/Outreader.
-                    // For now, let's just use the filtered ones and fill the columns.
-                    
-                    const getColumnValue = (colIdx: number) => {
-                      const isOddCol = (colIdx + 1) % 2 !== 0; // 1, 3, 5, 7, 9, 11
-                      const pairIdx = Math.floor(colIdx / 2); // 0, 0, 1, 1, 2, 2...
+                    sortedEntries.forEach(entry => {
+                      if (currentPairIdx >= 6) return;
                       
-                      if (isOddCol) {
-                        return inEntries[pairIdx]?.time || '';
+                      if (entry.direction === 'in') {
+                        if (pairs[currentPairIdx].in === '') {
+                          pairs[currentPairIdx].in = entry.time;
+                        } else {
+                          currentPairIdx++;
+                          if (currentPairIdx < 6) pairs[currentPairIdx].in = entry.time;
+                        }
+                      } else if (entry.direction === 'out') {
+                        pairs[currentPairIdx].out = entry.time;
+                        currentPairIdx++;
                       } else {
-                        return outEntries[pairIdx]?.time || '';
+                        // Fallback for unknown direction
+                        if (pairs[currentPairIdx].in === '') {
+                          pairs[currentPairIdx].in = entry.time;
+                        } else if (pairs[currentPairIdx].out === '') {
+                          pairs[currentPairIdx].out = entry.time;
+                          currentPairIdx++;
+                        } else {
+                          currentPairIdx++;
+                          if (currentPairIdx < 6) pairs[currentPairIdx].in = entry.time;
+                        }
                       }
-                    };
+                    });
 
                     return (
                       <tr key={day} className={`text-center h-7 transition-colors ${rowBg}`}>
                         <td className={`border p-0.5 text-right pr-2 ${darkMode ? 'border-slate-700' : 'border-slate-400'} ${isFriday ? 'text-red-500' : darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
                           {weekday} {dateStr}
                         </td>
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(idx => (
-                          <td key={idx} className={`border p-0.5 ${darkMode ? 'border-slate-700 text-slate-300' : 'border-slate-400 text-slate-900'}`}>
-                            {getColumnValue(idx)}
-                          </td>
-                        ))}
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(idx => {
+                          const pIdx = Math.floor(idx / 2);
+                          const isInCol = idx % 2 === 0;
+                          const val = isInCol ? pairs[pIdx].in : pairs[pIdx].out;
+                          return (
+                            <td key={idx} className={`border p-0.5 ${darkMode ? 'border-slate-700 text-slate-300' : 'border-slate-400 text-slate-900'}`}>
+                              {val}
+                            </td>
+                          );
+                        })}
                         <td className={`border p-0.5 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>
                           {isFriday ? (
                             <span className="text-red-500">تعطیل</span>
