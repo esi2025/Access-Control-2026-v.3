@@ -13,6 +13,7 @@ export interface AttendanceEntry {
   description: string;
   gate?: string;
   type?: 'person' | 'vehicle' | 'unknown';
+  direction?: 'in' | 'out' | 'unknown';
 }
 
 export interface PersonAttendance {

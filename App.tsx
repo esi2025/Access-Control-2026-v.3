@@ -260,6 +260,13 @@ const App: React.FC = () => {
             type = 'person';
           }
 
+          let direction: 'in' | 'out' | 'unknown' = 'unknown';
+          if (description.toLowerCase().includes('inreader')) {
+            direction = 'in';
+          } else if (description.toLowerCase().includes('outreader')) {
+            direction = 'out';
+          }
+
           if (!initialProcessed[id]) {
             initialProcessed[id] = { id, name, entries: [], dailyLogs: {} };
           }
@@ -269,7 +276,8 @@ const App: React.FC = () => {
             date: datestamp,
             description: description,
             gate,
-            type
+            type,
+            direction
           };
 
           if (!initialProcessed[id].dailyLogs[datestamp]) {
@@ -921,11 +929,16 @@ const App: React.FC = () => {
 
                           {selectedPerson.dailyLogs[selectedDate].map((entry, idx) => {
                             const isVehicle = entry.type === 'vehicle';
+                            const isIn = entry.direction === 'in' || (entry.direction === 'unknown' && idx % 2 === 0);
+                            
                             const themeClass = isVehicle 
                               ? darkMode ? 'bg-amber-900/10 border-amber-900/30' : 'bg-amber-50/50 border-amber-200/50' 
                               : darkMode ? 'bg-blue-900/10 border-blue-900/30' : 'bg-blue-50/50 border-blue-200/50';
+                            
                             const iconBgClass = isVehicle 
-                              ? darkMode ? 'bg-amber-900/40 text-amber-400' : 'bg-amber-100 text-amber-600' 
+                              ? isIn 
+                                ? darkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-600'
+                                : darkMode ? 'bg-red-900/40 text-red-400' : 'bg-red-100 text-red-600'
                               : darkMode ? 'bg-blue-900/40 text-blue-400' : 'bg-blue-100 text-blue-600';
                             
                             return (
@@ -933,7 +946,14 @@ const App: React.FC = () => {
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-4">
                                     <div className={`p-3 rounded-2xl shadow-inner ${iconBgClass}`}>
-                                      {isVehicle ? <Car size={22} /> : <UserIcon size={22} />}
+                                      {isVehicle ? (
+                                        <Car 
+                                          size={22} 
+                                          style={{ transform: isIn ? 'none' : 'scaleX(-1)' }} 
+                                        />
+                                      ) : (
+                                        <UserIcon size={22} />
+                                      )}
                                     </div>
                                     <div className="flex flex-col">
                                       <span className={`font-black text-lg leading-none ${darkMode ? 'text-white' : 'text-slate-800'}`}>{entry.time}</span>
@@ -945,10 +965,10 @@ const App: React.FC = () => {
                                   
                                   <div className="flex flex-col items-end gap-1">
                                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full font-black text-xs shadow-sm ${
-                                      idx % 2 === 0 ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'
+                                      isIn ? 'bg-emerald-500 text-white' : 'bg-red-500 text-white'
                                     }`}>
-                                      {idx % 2 === 0 ? <LogIn size={14} /> : <LogOut size={14} />}
-                                      <span>{idx % 2 === 0 ? 'ورود' : 'خروج'}</span>
+                                      {isIn ? <LogIn size={14} /> : <LogOut size={14} />}
+                                      <span>{isIn ? 'ورود' : 'خروج'}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -990,18 +1010,18 @@ const App: React.FC = () => {
                               
                               <div className="grid grid-cols-2 gap-3 w-full">
                                 {[...entries].sort((a,b) => String(a.time).localeCompare(String(b.time))).map((entry, idx) => {
-                                  const isEntry = idx % 2 === 0;
+                                  const isIn = entry.direction === 'in' || (entry.direction === 'unknown' && idx % 2 === 0);
                                   return (
                                     <div 
                                       key={idx} 
                                       className={`flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
-                                        isEntry 
+                                        isIn 
                                           ? darkMode ? 'bg-emerald-900/20 border-emerald-900/30 text-emerald-300' : 'bg-emerald-50 border-emerald-100 text-emerald-700' 
                                           : darkMode ? 'bg-sky-900/20 border-sky-900/30 text-sky-300' : 'bg-sky-50 border-sky-100 text-sky-700'
                                       }`}
                                     >
                                       <div className="flex items-center gap-2">
-                                        {isEntry ? <LogIn size={14} /> : <LogOut size={14} />}
+                                        {isIn ? <LogIn size={14} /> : <LogOut size={14} />}
                                         <span className="text-sm font-black">{entry.time}</span>
                                       </div>
                                     </div>

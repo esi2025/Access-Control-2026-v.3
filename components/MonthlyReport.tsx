@@ -122,6 +122,26 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
                       ? darkMode ? 'bg-red-900/10' : 'bg-[#fff5f5]' 
                       : darkMode ? 'bg-slate-900' : 'bg-[#fffdf0]';
 
+                    // Split entries by direction
+                    const inEntries = entries.filter(e => e.direction === 'in');
+                    const outEntries = entries.filter(e => e.direction === 'out');
+                    const unknownEntries = entries.filter(e => e.direction === 'unknown');
+
+                    // If we have unknown entries, we might need to distribute them. 
+                    // But usually, the user's file will have Inreader/Outreader.
+                    // For now, let's just use the filtered ones and fill the columns.
+                    
+                    const getColumnValue = (colIdx: number) => {
+                      const isOddCol = (colIdx + 1) % 2 !== 0; // 1, 3, 5, 7, 9, 11
+                      const pairIdx = Math.floor(colIdx / 2); // 0, 0, 1, 1, 2, 2...
+                      
+                      if (isOddCol) {
+                        return inEntries[pairIdx]?.time || '';
+                      } else {
+                        return outEntries[pairIdx]?.time || '';
+                      }
+                    };
+
                     return (
                       <tr key={day} className={`text-center h-7 transition-colors ${rowBg}`}>
                         <td className={`border p-0.5 text-right pr-2 ${darkMode ? 'border-slate-700' : 'border-slate-400'} ${isFriday ? 'text-red-500' : darkMode ? 'text-slate-300' : 'text-slate-800'}`}>
@@ -129,7 +149,7 @@ const MonthlyReport: React.FC<MonthlyReportProps> = ({ person, year: initialYear
                         </td>
                         {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(idx => (
                           <td key={idx} className={`border p-0.5 ${darkMode ? 'border-slate-700 text-slate-300' : 'border-slate-400 text-slate-900'}`}>
-                            {entries[idx]?.time || ''}
+                            {getColumnValue(idx)}
                           </td>
                         ))}
                         <td className={`border p-0.5 ${darkMode ? 'border-slate-700' : 'border-slate-400'}`}>
