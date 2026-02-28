@@ -37,7 +37,8 @@ import {
 import { RawRecord, PersonAttendance, AttendanceEntry } from './types';
 import Calendar from './components/Calendar';
 import MonthlyReport from './components/MonthlyReport';
-import { parseJalaliDate, JALALI_MONTHS, excelSerialToJalali, getDaysInMonth } from './utils/jalali';
+import AdvancedReport from './components/AdvancedReport';
+import { parseJalaliDate, JALALI_MONTHS, excelSerialToJalali, getDaysInMonth, compareJalaliDates, formatFriendlyJalaliDate } from './utils/jalali';
 
 const excelTimeToSeconds = (time: any): number => {
   if (typeof time === 'number') return Math.round(time * 24 * 3600);
@@ -60,25 +61,10 @@ const secondsToHHMMSS = (totalSeconds: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-const formatFriendlyJalaliDate = (dateStr: string) => {
-  const parsed = parseJalaliDate(dateStr);
-  if (!parsed) return dateStr;
-  return `${parsed.day} ${JALALI_MONTHS[parsed.month - 1]} ${parsed.year}`;
-};
-
 const findColumn = (row: any, keywords: string[]) => {
   if (!row) return undefined;
   const keys = Object.keys(row);
   return keys.find(key => keywords.some(k => key.toLowerCase().includes(k.toLowerCase())));
-};
-
-const compareJalaliDates = (dateA: string, dateB: string) => {
-  const pA = parseJalaliDate(dateA);
-  const pB = parseJalaliDate(dateB);
-  if (!pA || !pB) return 0;
-  if (pA.year !== pB.year) return pA.year - pB.year;
-  if (pA.month !== pB.month) return pA.month - pB.month;
-  return pA.day - pB.day;
 };
 
 const App: React.FC = () => {
@@ -125,7 +111,16 @@ const App: React.FC = () => {
   const [filterGate, setFilterGate] = useState<string>('all');
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [minHighTrafficDays, setMinHighTrafficDays] = useState<number>(0);
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedReport, setShowAdvancedReport] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({
+    startDate: '',
+    endDate: '',
+    type: 'all' as 'all' | 'person' | 'vehicle',
+    gate: 'all',
+    minHighTrafficDays: 0
+  });
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
   });
@@ -352,16 +347,21 @@ const App: React.FC = () => {
 
   const highTrafficPeople = useMemo(() => {
     const people = (Object.values(processedData) as PersonAttendance[]);
-    if (showAll) return [...people].sort((a, b) => a.name.localeCompare(b.name, 'fa'));
-
+    
     return people
       .map(p => {
-        const highTrafficDays = Object.values(p.dailyLogs).filter(entries => entries.length > trafficLimit).length;
-        return { ...p, highTrafficDays };
+        const highTrafficDaysCount = Object.values(p.dailyLogs).filter(entries => entries.length > trafficLimit).length;
+        return { ...p, highTrafficDays: highTrafficDaysCount };
       })
-      .filter(p => (p.highTrafficDays ?? 0) > 0)
-      .sort((a, b) => (b.highTrafficDays ?? 0) - (a.highTrafficDays ?? 0));
-  }, [processedData, trafficLimit, showAll]);
+      .filter(p => {
+        if (showAll) return true;
+        return (p.highTrafficDays ?? 0) >= (appliedFilters.minHighTrafficDays || 1);
+      })
+      .sort((a, b) => {
+        if (showAll) return a.name.localeCompare(b.name, 'fa');
+        return (b.highTrafficDays ?? 0) - (a.highTrafficDays ?? 0);
+      });
+  }, [processedData, trafficLimit, showAll, appliedFilters.minHighTrafficDays]);
 
   const filteredPeople = useMemo(() => {
     if (!searchTerm) return highTrafficPeople;
@@ -437,14 +437,14 @@ const App: React.FC = () => {
     (Object.values(processedData) as PersonAttendance[]).forEach(person => {
       Object.entries(person.dailyLogs).forEach(([date, entries]) => {
         // فیلتر تاریخ
-        if (filterStartDate && compareJalaliDates(date, filterStartDate) < 0) return;
-        if (filterEndDate && compareJalaliDates(date, filterEndDate) > 0) return;
+        if (appliedFilters.startDate && compareJalaliDates(date, appliedFilters.startDate) < 0) return;
+        if (appliedFilters.endDate && compareJalaliDates(date, appliedFilters.endDate) > 0) return;
 
         entries.forEach(entry => {
           // فیلتر نوع
-          if (filterType !== 'all' && entry.type !== filterType) return;
+          if (appliedFilters.type !== 'all' && entry.type !== appliedFilters.type) return;
           // فیلتر درب
-          if (filterGate !== 'all' && entry.gate !== filterGate) return;
+          if (appliedFilters.gate !== 'all' && entry.gate !== appliedFilters.gate) return;
 
           results.push({
             'نام': person.name,
@@ -459,7 +459,7 @@ const App: React.FC = () => {
       });
     });
     return results;
-  }, [processedData, filterStartDate, filterEndDate, filterType, filterGate]);
+  }, [processedData, appliedFilters]);
 
   const exportFilteredToCSV = () => {
     if (filteredEntriesReport.length === 0) {
@@ -654,7 +654,7 @@ const App: React.FC = () => {
               <h2 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>فیلترهای پیشرفته گزارش‌گیری</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="flex flex-col gap-2">
                 <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>بازه زمانی (از تاریخ):</label>
                 <input 
@@ -703,18 +703,56 @@ const App: React.FC = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>حداقل روزهای پرتردد:</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={minHighTrafficDays}
+                  onChange={(e) => setMinHighTrafficDays(parseInt(e.target.value) || 0)}
+                />
+              </div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
-              <p className={`text-[10px] font-bold ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
-                * تعداد رکوردهای منطبق: <span className="text-blue-500 font-black">{filteredEntriesReport.length} مورد</span>
-              </p>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={() => setAppliedFilters({
+                    startDate: filterStartDate,
+                    endDate: filterEndDate,
+                    type: filterType,
+                    gate: filterGate,
+                    minHighTrafficDays: minHighTrafficDays
+                  })}
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  اعمال فیلتر
+                </button>
+                <button 
+                  onClick={() => setShowAdvancedReport(true)}
+                  className="bg-emerald-600 text-white px-6 py-2.5 rounded-xl font-black text-xs hover:bg-emerald-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+                >
+                  <FileText size={16} />
+                  خروجی PDF پیشرفته
+                </button>
+              </div>
               <button 
                 onClick={() => {
                   setFilterStartDate('');
                   setFilterEndDate('');
                   setFilterType('all');
                   setFilterGate('all');
+                  setMinHighTrafficDays(0);
+                  setAppliedFilters({
+                    startDate: '',
+                    endDate: '',
+                    type: 'all',
+                    gate: 'all',
+                    minHighTrafficDays: 0
+                  });
                 }}
                 className="text-xs font-black text-red-500 hover:text-red-600 transition-colors"
               >
@@ -1059,6 +1097,15 @@ const App: React.FC = () => {
           year={selectedPersonStats?.year || 1404}
           month={selectedPersonStats?.month || 1}
           onClose={() => setReportPersonId(null)}
+          darkMode={darkMode}
+        />
+      )}
+
+      {showAdvancedReport && (
+        <AdvancedReport 
+          people={filteredPeople}
+          trafficLimit={trafficLimit}
+          onClose={() => setShowAdvancedReport(false)}
           darkMode={darkMode}
         />
       )}

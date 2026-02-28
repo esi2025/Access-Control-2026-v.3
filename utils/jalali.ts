@@ -99,3 +99,19 @@ export const excelSerialToJalali = (serial: any): string => {
   
   return `${farsiToEn(day)}/${farsiToEn(month)}/${farsiToEn(year)}`;
 };
+
+export const compareJalaliDates = (date1: string, date2: string): number => {
+  const p1 = parseJalaliDate(date1);
+  const p2 = parseJalaliDate(date2);
+  if (!p1 || !p2) return 0;
+  if (p1.year !== p2.year) return p1.year - p2.year;
+  if (p1.month !== p2.month) return p1.month - p2.month;
+  return p1.day - p2.day;
+};
+
+export const formatFriendlyJalaliDate = (dateStr: string): string => {
+  const p = parseJalaliDate(dateStr);
+  if (!p) return dateStr;
+  const weekday = getWeekdayName(p.day, p.month, p.year);
+  return `${weekday} ${p.day} ${JALALI_MONTHS[p.month - 1]} ${p.year}`;
+};
