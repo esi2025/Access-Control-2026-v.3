@@ -42,48 +42,64 @@ const AdvancedReport: React.FC<AdvancedReportProps> = ({ people, trafficLimit, o
 
         {/* Report Content */}
         <div className="flex-1 overflow-auto p-8 print:p-0 custom-scrollbar" dir="rtl">
-          <div className="space-y-12">
-            {people.map((person) => {
-              const highTrafficDays = (Object.entries(person.dailyLogs) as [string, AttendanceEntry[]][])
-                .filter(([_, entries]) => entries.length > trafficLimit)
-                .sort((a, b) => a[0].localeCompare(b[0]));
+          <table className="w-full border-collapse border border-slate-300 text-right text-xs">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="border border-slate-300 p-2 font-black w-12 text-center">ردیف</th>
+                <th className="border border-slate-300 p-2 font-black w-48">نام و کد پرسنلی</th>
+                <th className="border border-slate-300 p-2 font-black w-32 text-center">تاریخ</th>
+                <th className="border border-slate-300 p-2 font-black w-20 text-center">تعداد</th>
+                <th className="border border-slate-300 p-2 font-black">جزئیات ترددها (زمان - جهت)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                let globalIndex = 1;
+                return people.map((person) => {
+                  const highTrafficDays = (Object.entries(person.dailyLogs) as [string, AttendanceEntry[]][])
+                    .filter(([_, entries]) => entries.length > trafficLimit)
+                    .sort((a, b) => a[0].localeCompare(b[0]));
 
-              if (highTrafficDays.length === 0) return null;
+                  if (highTrafficDays.length === 0) return null;
 
-              return (
-                <div key={person.id} className="border-b-2 border-slate-200 pb-8 last:border-0 break-inside-avoid">
-                  <div className="flex justify-between items-center mb-6 bg-slate-100 p-4 rounded-xl">
-                    <div className="text-right">
-                      <h3 className="text-xl font-black text-slate-900">{person.name}</h3>
-                      <p className="text-sm font-bold text-slate-600">کد پرسنلی: {person.id}</p>
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black text-orange-600">{highTrafficDays.length} روز پرتردد شناسایی شده</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    {highTrafficDays.map(([date, entries]) => (
-                      <div key={date} className="border rounded-xl overflow-hidden">
-                        <div className="bg-slate-50 p-2 border-b flex justify-between items-center px-4">
-                          <span className="font-black text-sm text-slate-800">{formatFriendlyJalaliDate(date)}</span>
-                          <span className="text-xs font-bold text-slate-500">{entries.length} تردد ثبت شده</span>
-                        </div>
-                        <div className="p-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                  return highTrafficDays.map(([date, entries], dayIdx) => (
+                    <tr key={`${person.id}-${date}`} className="hover:bg-slate-50 transition-colors">
+                      <td className="border border-slate-300 p-2 text-center font-bold">{globalIndex++}</td>
+                      {dayIdx === 0 ? (
+                        <td className="border border-slate-300 p-2 font-black align-top" rowSpan={highTrafficDays.length}>
+                          <div className="text-slate-900">{person.name}</div>
+                          <div className="text-[10px] text-slate-500 font-bold">{person.id}</div>
+                          <div className="mt-1 text-[9px] text-orange-600 font-black">{highTrafficDays.length} روز بحرانی</div>
+                        </td>
+                      ) : null}
+                      <td className="border border-slate-300 p-2 text-center font-bold text-slate-700">
+                        {formatFriendlyJalaliDate(date)}
+                      </td>
+                      <td className="border border-slate-300 p-2 text-center font-black text-blue-600">
+                        {entries.length}
+                      </td>
+                      <td className="border border-slate-300 p-1">
+                        <div className="flex flex-wrap gap-1">
                           {entries.map((entry, idx) => (
-                            <div key={idx} className={`p-2 rounded-lg border text-center text-xs font-black ${entry.direction === 'in' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-sky-50 border-sky-100 text-sky-700'}`}>
-                              <span className="block">{entry.time}</span>
-                              <span className="text-[9px] opacity-70">{entry.direction === 'in' ? 'ورود' : 'خروج'}</span>
+                            <div key={idx} className={`px-1.5 py-0.5 rounded border text-[10px] font-black flex items-center gap-1 ${entry.direction === 'in' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-sky-50 border-sky-100 text-sky-700'}`}>
+                              <span>{entry.time}</span>
+                              <span className="opacity-50 text-[8px]">{entry.direction === 'in' ? 'ورود' : 'خروج'}</span>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                      </td>
+                    </tr>
+                  ));
+                });
+              })()}
+            </tbody>
+          </table>
+          
+          {people.length === 0 && (
+            <div className="text-center py-12 text-slate-400 font-bold">
+              موردی برای نمایش یافت نشد.
+            </div>
+          )}
         </div>
       </div>
 

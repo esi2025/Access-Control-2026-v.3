@@ -112,6 +112,7 @@ const App: React.FC = () => {
   const [filterStartDate, setFilterStartDate] = useState<string>('');
   const [filterEndDate, setFilterEndDate] = useState<string>('');
   const [minHighTrafficDays, setMinHighTrafficDays] = useState<number>(0);
+  const [maxHighTrafficDays, setMaxHighTrafficDays] = useState<number>(100);
   const [showFilters, setShowFilters] = useState(false);
   const [showAdvancedReport, setShowAdvancedReport] = useState(false);
   const [appliedFilters, setAppliedFilters] = useState({
@@ -119,7 +120,8 @@ const App: React.FC = () => {
     endDate: '',
     type: 'all' as 'all' | 'person' | 'vehicle',
     gate: 'all',
-    minHighTrafficDays: 0
+    minHighTrafficDays: 0,
+    maxHighTrafficDays: 100
   });
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('theme') === 'dark';
@@ -355,13 +357,16 @@ const App: React.FC = () => {
       })
       .filter(p => {
         if (showAll) return true;
-        return (p.highTrafficDays ?? 0) >= (appliedFilters.minHighTrafficDays || 1);
+        const count = p.highTrafficDays ?? 0;
+        const min = appliedFilters.minHighTrafficDays || 0;
+        const max = appliedFilters.maxHighTrafficDays || 1000;
+        return count >= min && count <= max;
       })
       .sort((a, b) => {
         if (showAll) return a.name.localeCompare(b.name, 'fa');
         return (b.highTrafficDays ?? 0) - (a.highTrafficDays ?? 0);
       });
-  }, [processedData, trafficLimit, showAll, appliedFilters.minHighTrafficDays]);
+  }, [processedData, trafficLimit, showAll, appliedFilters.minHighTrafficDays, appliedFilters.maxHighTrafficDays]);
 
   const filteredPeople = useMemo(() => {
     if (!searchTerm) return highTrafficPeople;
@@ -654,7 +659,7 @@ const App: React.FC = () => {
               <h2 className={`text-lg font-black ${darkMode ? 'text-white' : 'text-slate-800'}`}>فیلترهای پیشرفته گزارش‌گیری</h2>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
               <div className="flex flex-col gap-2">
                 <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>بازه زمانی (از تاریخ):</label>
                 <input 
@@ -714,6 +719,17 @@ const App: React.FC = () => {
                   onChange={(e) => setMinHighTrafficDays(parseInt(e.target.value) || 0)}
                 />
               </div>
+
+              <div className="flex flex-col gap-2">
+                <label className={`text-xs font-black ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>حداکثر روزهای پرتردد:</label>
+                <input 
+                  type="number" 
+                  min="0"
+                  className={`p-3 rounded-xl border font-black text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${darkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  value={maxHighTrafficDays}
+                  onChange={(e) => setMaxHighTrafficDays(parseInt(e.target.value) || 0)}
+                />
+              </div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
@@ -724,7 +740,8 @@ const App: React.FC = () => {
                     endDate: filterEndDate,
                     type: filterType,
                     gate: filterGate,
-                    minHighTrafficDays: minHighTrafficDays
+                    minHighTrafficDays: minHighTrafficDays,
+                    maxHighTrafficDays: maxHighTrafficDays
                   })}
                   className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-black text-xs hover:bg-blue-700 transition-all shadow-lg active:scale-95 flex items-center gap-2"
                 >
@@ -746,12 +763,14 @@ const App: React.FC = () => {
                   setFilterType('all');
                   setFilterGate('all');
                   setMinHighTrafficDays(0);
+                  setMaxHighTrafficDays(100);
                   setAppliedFilters({
                     startDate: '',
                     endDate: '',
                     type: 'all',
                     gate: 'all',
-                    minHighTrafficDays: 0
+                    minHighTrafficDays: 0,
+                    maxHighTrafficDays: 100
                   });
                 }}
                 className="text-xs font-black text-red-500 hover:text-red-600 transition-colors"
