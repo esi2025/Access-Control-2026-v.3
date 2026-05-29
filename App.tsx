@@ -41,20 +41,32 @@ import AdvancedReport from './components/AdvancedReport';
 import { parseJalaliDate, JALALI_MONTHS, excelSerialToJalali, getDaysInMonth, compareJalaliDates, formatFriendlyJalaliDate } from './utils/jalali';
 
 const excelTimeToSeconds = (time: any): number => {
+  if (time instanceof Date) {
+    return time.getHours() * 3600 + time.getMinutes() * 60 + time.getSeconds();
+  }
   if (typeof time === 'number') {
     // برای استخراج صرفاً بازه زمانی روزانه (جلوگیری از ترکیب بخش تاریخ با بخش ساعت)
     return Math.round((time % 1) * 24 * 3600);
   }
   if (typeof time === 'string') {
-    if (time.includes(':')) {
-      const parts = time.split(':');
-      const hours = parseInt(parts[0] || '0') % 24;
-      const minutes = parseInt(parts[1] || '0');
-      const seconds = parts[2] ? parseInt(parts[2]) : 0;
-      return hours * 3600 + minutes * 60 + seconds;
+    const cleanTime = time.trim();
+    // پیدا کردن ساعت، دقیقه و ثانیه با رجکس به صورت کاملاً مستقل از تاریخ
+    const timeMatch = cleanTime.match(/(\d{1,2}):(\d{2}):(\d{2})/) || cleanTime.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      let hours = parseInt(timeMatch[1]);
+      const minutes = parseInt(timeMatch[2]);
+      const seconds = timeMatch[3] ? parseInt(timeMatch[3]) : 0;
+      
+      const isPM = /pm|ب\.ظ/i.test(cleanTime);
+      const isAM = /am|ق\.ظ/i.test(cleanTime);
+      if (isPM && hours < 12) hours += 12;
+      if (isAM && hours === 12) hours = 0;
+      
+      return (hours % 24) * 3600 + minutes * 60 + seconds;
     }
-    if (!isNaN(parseFloat(time))) {
-      return Math.round((parseFloat(time) % 1) * 24 * 3600);
+    if (!isNaN(parseFloat(cleanTime))) {
+      const val = parseFloat(cleanTime);
+      return Math.round((val % 1) * 24 * 3600);
     }
   }
   return 0;
