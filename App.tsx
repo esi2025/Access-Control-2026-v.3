@@ -41,23 +41,31 @@ import AdvancedReport from './components/AdvancedReport';
 import { parseJalaliDate, JALALI_MONTHS, excelSerialToJalali, getDaysInMonth, compareJalaliDates, formatFriendlyJalaliDate } from './utils/jalali';
 
 const excelTimeToSeconds = (time: any): number => {
-  if (typeof time === 'number') return Math.round(time * 24 * 3600);
+  if (typeof time === 'number') {
+    // برای استخراج صرفاً بازه زمانی روزانه (جلوگیری از ترکیب بخش تاریخ با بخش ساعت)
+    return Math.round((time % 1) * 24 * 3600);
+  }
   if (typeof time === 'string') {
     if (time.includes(':')) {
       const parts = time.split(':');
-      return parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + (parts[2] ? parseInt(parts[2]) : 0);
+      const hours = parseInt(parts[0] || '0') % 24;
+      const minutes = parseInt(parts[1] || '0');
+      const seconds = parts[2] ? parseInt(parts[2]) : 0;
+      return hours * 3600 + minutes * 60 + seconds;
     }
     if (!isNaN(parseFloat(time))) {
-      return Math.round(parseFloat(time) * 24 * 3600);
+      return Math.round((parseFloat(time) % 1) * 24 * 3600);
     }
   }
   return 0;
 };
 
 const secondsToHHMMSS = (totalSeconds: number): string => {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
+  // اطمینان از اینکه ساعت در محدوده ۲۴ ساعت روزانه باشد
+  const normalizedSeconds = ((totalSeconds % 86400) + 86400) % 86400;
+  const hours = Math.floor(normalizedSeconds / 3600);
+  const minutes = Math.floor((normalizedSeconds % 3600) / 60);
+  const seconds = normalizedSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
